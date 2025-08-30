@@ -160,7 +160,7 @@ def main():
     # ap.add_argument('--device', default='cpu')
     ap.add_argument('--run', nargs='+', default=['tfidf','phobert','clip','ada2'])
     ap.add_argument('--beta', type=float, default=0.2, help='popularity weight')
-    ap.add_argument('--subset', type=int, default=0, help='if >0, evaluate on a random subset of test users for speed)
+    ap.add_argument('--subset', type=int, default=0, help='if >0, evaluate on a random subset of test users for speed')
     ap.add_argument('--device', default='auto')
     args = ap.parse_args()
 
