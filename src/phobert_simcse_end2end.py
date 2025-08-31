@@ -27,7 +27,7 @@ import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoModel, AutoTokenizer, get_linear_schedule_with_warmup
-
+from contextlib import nullcontext
 
 # -----------------------------
 # Utils
@@ -97,7 +97,7 @@ class PhoBERTEncoder(nn.Module):
         self.model = AutoModel.from_pretrained(model_name_or_path)
         self.normalize = normalize
 
-    def forward(self, input_ids, attention_mask):
+    def forward(self, input_ids, attention_mask, **kwargs):
         out = self.model(input_ids=input_ids, attention_mask=attention_mask)
         emb = mean_pool(out.last_hidden_state, attention_mask)
         if self.normalize:
@@ -135,6 +135,8 @@ def collate_texts(batch_texts: List[str], tokenizer, max_len: int, device: torch
         truncation=True,
         max_length=max_len
     )
+    # Roberta/PhoBERT không cần token_type_ids
+    enc.pop("token_type_ids", None)
     return {k: v.to(device) for k, v in enc.items()}
 
 
@@ -201,8 +203,11 @@ def cmd_train(
                 break
             b1 = collate_texts(batch, tokenizer, max_len, device)
             b2 = collate_texts(batch, tokenizer, max_len, device)
+            device_type = "cuda" if device.type == "cuda" else None
+            scaler = torch.amp.GradScaler(device_type) if device_type else torch.amp.GradScaler(enabled=False)
+            ctx = (torch.amp.autocast(device_type) if device_type else nullcontext())
 
-            with torch.cuda.amp.autocast(enabled=use_amp):
+            with ctx:
                 z1 = model(**b1)
                 z2 = model(**b2)
                 loss = loss_fn(z1, z2) / grad_accum_steps
